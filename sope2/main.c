@@ -26,7 +26,7 @@ shmdt(pt2);
 return NULL;
 }
 */
-/*void print_shdata(shdata data){
+void print_shdata(shdata data){
 int i;
 printf("\n\nSHDATA---------");
 printf("\nnplayers: %d",data.nplayers);
@@ -38,18 +38,20 @@ printf("\ndealer: %d",data.dealer);
 printf("\n# Player Entry");
 for(i=0;i<data.in;i++)
     printf("\n%d | %s | %s",data.players[i].number,data.players[i].nickname,data.players[i].FIFOname);
-}*/
+}
 
-void add_player_to_shdata(shdata *data,char* name, int player_number){
+void add_player_to_shdata(shdata *data,char* name){
     data[0].in++;
-    if(player_number==0)
-        data[0].players=(player_entry*) malloc (sizeof(player_entry)*data[0].nplayers);
-        
-    player_entry player;
-    player.nickname=name;
-    player.FIFOname=name;
-    
-    data[0].players[data[0].in-1]=player;
+    strcpy(data[0].players[data[0].in-1].nickname,name);
+    strcpy(data[0].players[data[0].in-1].FIFOname,name);
+    data[0].players[data[0].in-1].number=data[0].in-1;
+}
+void initalize_data(shdata *data, int room_size){
+    data[0].nplayers=room_size;
+    data[0].in=0;
+    data[0].turn=0;
+    data[0].roundnumber=0;
+    data[0].dealer=0;
 }
 
 shdata *joinroom(char *name, char *room, int room_size, int *shmid){
@@ -63,18 +65,15 @@ shdata *joinroom(char *name, char *room, int room_size, int *shmid){
         printf("Creating\n");
         *shmid=shmget(key, sizeof(shdata), IPC_CREAT | IPC_EXCL | SHM_R | SHM_W);
         addr=(shdata*)shmat(*shmid,0,0);
-        addr[0].nplayers=room_size;
-        add_player_to_shdata(addr,name,0);
-        printf("addr nick p0: %s",addr[0].players[0].nickname); 
+        initalize_data(addr,room_size);
+        add_player_to_shdata(addr,name);
     }
     else{
         printf("Joining\n");
         addr=(shdata*)shmat(*shmid,0,0);
-        
+        add_player_to_shdata(addr,name);
     }
     
-
-    printf("shmid=%d",*shmid);
     return addr;
 }
 
@@ -99,12 +98,12 @@ int shmid=0;;
     printf("Room[%d]: %s\n",room_size,room);
     
     addr=joinroom(player_name,room,room_size,&shmid);
-    printf("aAAAAAnick p0: %s",addr[0].players[0].nickname); 
+   // printf("aAAAAAnick p0: %s",addr[0].players[0].nickname); 
 
   //  addr=(shdata*)shmat(shmid,0,0);
 //    printf("addr nick p0: %s",addr[0].players[0].nickname);
     //printf("addr nick p0: %d",shmid);
-    //print_shdata(addr[0]);
+    print_shdata(addr[0]);
 
 
 
@@ -133,6 +132,7 @@ shmid = shmget(key, 1024, IPC_CREAT | IPC_EXCL | SHM_R | SHM_W);
 pt1 = (int *) shmat(shmid, 0, 0);
 pt1[0] =oi;
 
+pthread_t tid;
 
 pthread_create(&tid, NULL, thr_func, &k);
 pthread_join(tid, &r);

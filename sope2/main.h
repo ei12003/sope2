@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <pthread.h>
 #include <sys/types.h>
 #include <sys/ipc.h>
@@ -18,9 +19,9 @@ char suit;
 /*array with players' info, holding for each entry (player) a structure with her
 number, nickname, FIFOname, etc*/
 typedef struct player_entry{
-char *nickname;
+char nickname[15];
 int number;
-char *FIFOname;
+char FIFOname[15];
 }player_entry;
 
 
@@ -28,8 +29,7 @@ char *FIFOname;
 typedef struct shdata{
 int nplayers;
 int in;
-player_entry *players;
-
+player_entry players[10];
 int turn;
 int roundnumber;
 int dealer;
