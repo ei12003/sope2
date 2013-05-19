@@ -23,7 +23,7 @@ char suit;
 }card;
 
 
-/*laarray with players' info, holding for each entry (player) a structure with her
+/*array with players' info, holding for each entry (player) a structure with her
 number, nickname, FIFOname, etc*/
 typedef struct player_entry{
 char nickname[15];
@@ -34,6 +34,10 @@ char FIFOname[15];
 
 
 typedef struct shdata{
+pthread_cond_t cvar;
+pthread_mutex_t mut;
+
+
 int nplayers;
 int in;
 player_entry players[10];
@@ -45,7 +49,7 @@ int failed;
 /*mutexes*/
 
 }shdata;
-
+void *thr_func(void *arg);
 void print_shdata(shdata data);
 void add_player_to_shdata(shdata *data,char* name);
 void initalize_data(shdata *data, int room_size);

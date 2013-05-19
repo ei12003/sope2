@@ -27,51 +27,14 @@ return NULL;
 }
 */
 int isDealer;
-shdata *joinroom(char *name, char *room, int room_size, int *shmid){
-    
-    shdata *addr;
-    key_t key;
-    int fifo;
-    key=ftok(room,0);
-    *shmid = shmget(key, 0,0);
-
-    if(*shmid==-1){
-        printf("Creating\n");
-        isDealer=1;
-        *shmid=shmget(key, sizeof(shdata), IPC_CREAT | IPC_EXCL | SHM_R | SHM_W);    
-        addr=(shdata*)shmat(*shmid,0,0);
-        initalize_data(addr,room_size);
-    }
-
-    else{
-        printf("Joining\n");
-        addr=(shdata*)shmat(*shmid,0,0);
-        if(addr[0].in==addr[0].nplayers){        
-            addr[0].failed=1;
-            return addr;
-        }
-    }
-    
-    add_player_to_shdata(addr,name);
-    /*##########
-        Setting up FIFOname
-            ##########*/
-        fifo=create_fifo(addr);
-   if(fifo==-1){
-        addr[0].failed=2;
-        return addr;
-    }
-
-
-    return addr;
-}
+pthread_cond_t cvar=PTHREAD_COND_INITIALIZER;
+pthread_mutex_t mut=PTHREAD_MUTEX_INITIALIZER; 
 
 
 
 
 int main(int argc, char *argv[], char *envp[])
 {
-card cards[52];
 shdata *addr;
 int shmid=0;;
 
@@ -93,9 +56,12 @@ int shmid=0;;
         printf("\n##########\nCouldn't create FIFO pipe.\n");
         return -2;
     }
+    //if(isDealer!=1)
+      //  pthread_cond_signal(&cvar);
+
 
     if(isDealer==1)
-        init_deck(cards,addr);
+        init_deck(addr);
     
     print_shdata(addr[0]);
 
@@ -107,14 +73,62 @@ int shmid=0;;
         }while(ch!='e');
         
         cleanall(addr,shmid);
-    }
-        
-
+    }/*
+if(isDealer==1){
+        pthread_mutex_lock(&mut); 
+        while (addr[0].in != addr[0].nplayers){
+            pthread_cond_wait(&cvar, &mut); 
+            printf("gonnacheck");
+            }
+        pthread_mutex_lock(&mut); 
+}*/
 
 return 0;
 
 
 
+}
+
+
+shdata *joinroom(char *name, char *room, int room_size, int *shmid){
+    
+    shdata *addr;
+    key_t key;
+    int fifo;
+    key=ftok(room,0);
+    *shmid = shmget(key, 0,0);
+
+    if(*shmid==-1){
+        printf("Creating\n");
+        isDealer=1;
+        *shmid=shmget(key, sizeof(shdata), IPC_CREAT | IPC_EXCL | SHM_R | SHM_W);    
+        addr=(shdata*)shmat(*shmid,0,0);
+        initalize_data(addr,room_size);
+    }
+
+    else{
+        
+        addr=(shdata*)shmat(*shmid,0,0);
+        printf("Joining%d\n",addr[0].in);
+        if(addr[0].in==addr[0].nplayers){        
+            addr[0].failed=1;
+            return addr;
+        }
+    }
+    
+    add_player_to_shdata(addr,name);
+    /*##########
+        Setting up FIFOname
+            ##########*/
+        fifo=create_fifo(addr);
+   if(fifo==-1){
+        addr[0].failed=2;
+
+        return addr;
+    }
+
+
+    return addr;
 }
 
 void init_deck(shdata *addr){
