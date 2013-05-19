@@ -5,6 +5,8 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
+/* OI */
+
 int oi;
 void *thr_func(void *arg){
 
