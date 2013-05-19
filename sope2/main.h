@@ -23,7 +23,7 @@ char suit;
 }card;
 
 
-/*aarray with players' info, holding for each entry (player) a structure with her
+/*laarray with players' info, holding for each entry (player) a structure with her
 number, nickname, FIFOname, etc*/
 typedef struct player_entry{
 char nickname[15];
