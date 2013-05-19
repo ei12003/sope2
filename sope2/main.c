@@ -27,10 +27,23 @@ return NULL;
 }
 */
 int isDealer;
-pthread_cond_t cvar=PTHREAD_COND_INITIALIZER;
-pthread_mutex_t mut=PTHREAD_MUTEX_INITIALIZER; 
 
 
+void
+init_sync_objects_in_shared_memory(shdata *data)
+{
+pthread_mutexattr_t mattr;
+pthread_mutexattr_init(&mattr);
+pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
+printf("pthread_mutex_init=%d", pthread_mutex_init(&data[0].mut, &mattr));
+
+pthread_condattr_t cattr;
+pthread_condattr_init(&cattr);
+pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
+printf("pthread_cond_init=%d", pthread_cond_init(&data[0].cvar, &cattr));
+
+
+} 
 
 
 int main(int argc, char *argv[], char *envp[])
@@ -56,32 +69,38 @@ int shmid=0;;
         printf("\n##########\nCouldn't create FIFO pipe.\n");
         return -2;
     }
-    //if(isDealer!=1)
-      //  pthread_cond_signal(&cvar);
+    if(isDealer!=1){
+        pthread_mutex_trylock(&addr[0].mut);
+        pthread_cond_signal(&addr[0].cvar);
+        pthread_mutex_unlock(&addr[0].mut); 
 
+    }
 
-    if(isDealer==1)
+    if(isDealer==1){
         init_deck(addr);
+        init_sync_objects_in_shared_memory(addr);
+    }
     
-    print_shdata(addr[0]);
+    //print_shdata(addr[0]);
 
 
-    char ch;
+if(isDealer==1){
+        pthread_mutex_lock(&addr[0].mut); 
+        while (addr[0].in != addr[0].nplayers)
+            pthread_cond_wait(&addr[0].cvar, &addr[0].mut);
+        pthread_mutex_unlock(&addr[0].mut); 
+}
+
+char ch;
     if(isDealer==1){
         do{
+            printf("prompt > ");
             scanf("%c",&ch);
         }while(ch!='e');
         
         cleanall(addr,shmid);
-    }/*
-if(isDealer==1){
-        pthread_mutex_lock(&mut); 
-        while (addr[0].in != addr[0].nplayers){
-            pthread_cond_wait(&cvar, &mut); 
-            printf("gonnacheck");
-            }
-        pthread_mutex_lock(&mut); 
-}*/
+    }
+
 
 return 0;
 
@@ -107,7 +126,7 @@ shdata *joinroom(char *name, char *room, int room_size, int *shmid){
     }
 
     else{
-        
+        isDealer=0;
         addr=(shdata*)shmat(*shmid,0,0);
         printf("Joining%d\n",addr[0].in);
         if(addr[0].in==addr[0].nplayers){        

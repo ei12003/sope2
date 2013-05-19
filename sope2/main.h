@@ -36,8 +36,6 @@ char FIFOname[15];
 typedef struct shdata{
 pthread_cond_t cvar;
 pthread_mutex_t mut;
-
-
 int nplayers;
 int in;
 player_entry players[10];
