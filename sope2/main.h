@@ -49,7 +49,13 @@ int failed;
 /*mutexes*/
 
 }shdata;
+
 void *thr_func(void *arg);
+
+
+void init_sync_objects_in_shared_memory(shdata *data);
+void remove_cards(card *deck,int *deck_size,int number);
+int distributing_cards(card *cards,int *deck_size,char *fifo,int player_number);
 void print_shdata(shdata data);
 void add_player_to_shdata(shdata *data,char* name);
 void initalize_data(shdata *data, int room_size);
