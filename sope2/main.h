@@ -50,7 +50,10 @@ int failed;
 
 }shdata;
 
-void *thr_func(void *arg);
+void *dealer_handler(void *arg);
+
+void *player_gameplay_handler(void *arg);
+void *player_kbd_handler(void *arg);
 
 
 void init_sync_objects_in_shared_memory(shdata *data);

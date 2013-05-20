@@ -1,43 +1,17 @@
 #include "main.h"
 
-/* OI 
 
-int oi;
-void *thr_func(void *arg){
-
-int shmid;
-int *pt2;
-
-key_t key;
-
-key=ftok("proc1",0);
-
-shmid = shmget(key, 0,0);
-pt2=(int*)shmat(shmid,0,0);
-
-
-pt2 = (int *) shmat(shmid, 0, 0);
-
-
-printf("pt2[2]=%s",pt2[0]);
-
-shmdt(pt2);
-
-return NULL;
-}
-*/
 int isDealer;
 int fd_write[10];
 int fd_read;
-
-//c-5c-8c-Jc/Ah-2h/6d-10d-Kd/3s-5s-4s-7s--------------------------------------------------------------
-//write(fd, const void *buf, sizeof()); 
-
+char ownFIFO[40], ownNAME[40];
 
 int main(int argc, char *argv[], char *envp[])
 {
+        
 
 shdata *addr;
+pthread_t tidp_gp,tidp_kbd,tidd;
 int shmid=0,i;
 
     if(argc!=4){
@@ -50,47 +24,80 @@ int shmid=0,i;
     //     #####
 
     addr=joinroom(argv[1],argv[2],atoi(argv[3]),&shmid);
+
     if(addr[0].failed==1){
         printf("\n##########\nRoom \"%s\" is full.\n", argv[2]);
         return -1;
     }
+
     else if(addr[0].failed==2){
         printf("\n##########\nCouldn't create FIFO pipe.\n");
         return -2;
     }
-    if(isDealer!=1){
-        pthread_mutex_lock(&addr[0].mut);
-        pthread_cond_signal(&addr[0].cvar);
-        pthread_mutex_unlock(&addr[0].mut); 
-        char fifo[40]="FIFO",ch;
-        strcat(fifo,argv[1]);
-        printf("abrir %s",fifo);
-        fd_read=open(fifo,O_RDONLY);
-        printf("aberto");
-        do{
-            printf("prompt > ");
-            scanf("%c",&ch);
+    else
+        printf("sucessful joining");
 
-        }while(ch!='e');
-        close(fd_read);
-        /* thread para interface utilizador 
+    strcpy(ownNAME,argv[1]);
+    if(isDealer==1)
+        pthread_create(&tidd, NULL, dealer_handler, addr);        
 
-own turn
-lock
-*/
-/* thread para interagir com dealer 
+    pthread_create(&tidp_gp, NULL, player_gameplay_handler, addr);
+    pthread_create(&tidp_kbd, NULL, player_kbd_handler, addr);
+    pthread_join(tidp_kbd, NULL);
+
+    close(fd_read);
+
+    
+    
+    
+    if(isDealer==1)
+       cleanall(addr,shmid);
+    else
+        shmdt(addr);
+
+return 0;
 
 
 
-if(userinput=play hasd)
-unlock;
-*/
+}
+void *player_kbd_handler(void *arg){
+        char ch[100];
+        char buf[150];
+            while(1){
+            printf("promptPLAYER > ");
+            scanf("%s",ch);
+            printf("C:%s\n",ch);
+            if(strcmp(ch,"show")==0){
+                read(fd_read,buf,sizeof(buf));
+                printf("Cards: %s",buf);
 
-    shmdt(addr);
+            }
+            if(strcmp(ch,"exit")==0)
+                break;
+        }
 
-    }
+    return 0;
+}
 
-    if(isDealer==1){
+void *player_gameplay_handler(void *arg){
+    shdata *addr=(shdata*)arg;
+    pthread_mutex_lock(&addr[0].mut);
+    pthread_cond_signal(&addr[0].cvar);
+    pthread_mutex_unlock(&addr[0].mut); 
+
+    printf("\nisPlayer: %s ",addr[0].players[1].nickname);
+
+
+    return 0;
+}
+
+
+void *dealer_handler(void *arg){
+int check=0,i;
+
+    shdata *addr=(shdata*)arg;
+    printf("\nisDealer: %s ",addr[0].players[0].nickname);
+
         init_deck(addr);
         init_sync_objects_in_shared_memory(addr);
     
@@ -98,35 +105,30 @@ unlock;
         pthread_mutex_lock(&addr[0].mut); 
         while (addr[0].in != addr[0].nplayers)
             pthread_cond_wait(&addr[0].cvar, &addr[0].mut);
+            
+        for(i=0;i<addr[0].in;i++){
+                check++;
+                printf("abrir ESCRITA%d cond",i);
+                fd_write[i]=open(addr[0].players[i].FIFOname,O_WRONLY);
+                printf("aberto");
+                if(fd_write[i]==-1){
+                    printf("UPS2\n");
+                    return 0;
+                }
+            }
+
         pthread_mutex_unlock(&addr[0].mut); 
 
         printf("\nDistributing cards\n");
 
 
 //        int distributing_cards(card *cards,int deck_size,char fifo[]){
-    //for(i=0;i<addr[0].in;i++) FAZER THREAD PARA O DEALER
-        distributing_cards(addr[0].cards,&addr[0].deck_size,addr[0].players[1].FIFOname,1);
+    for(i=0;i<addr[0].in;i++) 
+        distributing_cards(addr[0].cards,&addr[0].deck_size,addr[0].players[i].FIFOname,i);
 
         print_shdata(addr[0]);
-
-
-        char ch;
-        do{
-            printf("prompt > ");
-            scanf("%c",&ch);
-
-        }while(ch!='e');
-    for(i=0;i<addr[0].in;i++)
-        close(fd_write[i]);
-        cleanall(addr,shmid);
-    }
-
-return 0;
-
-
-
+    return 0;
 }
-
 
 
 void init_sync_objects_in_shared_memory(shdata *data)
@@ -134,12 +136,12 @@ void init_sync_objects_in_shared_memory(shdata *data)
 pthread_mutexattr_t mattr;
 pthread_mutexattr_init(&mattr);
 pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
-printf("pthread_mutex_init=%d", pthread_mutex_init(&data[0].mut, &mattr));
+pthread_mutex_init(&data[0].mut, &mattr);
 
 pthread_condattr_t cattr;
 pthread_condattr_init(&cattr);
 pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
-printf("pthread_cond_init=%d", pthread_cond_init(&data[0].cvar, &cattr));
+pthread_cond_init(&data[0].cvar, &cattr);
 
 
 } 
@@ -184,21 +186,9 @@ for(j=0;j<HANDLIMIT;j++){
         strcat(hand_str,"/");
     }
     hand_str[strlen(hand_str)-1]='\0';
-    //printf("[hand: %s]",hand_str);    
-    printf("abrir ESCRITA%s",fifo);
-
-    fd_write[player_number]=open(fifo,O_WRONLY);
-        
-        printf("aberto");
-
-    if(fd_write[player_number]==-1){
-        printf("ups2");
-        return -1;
-    }
+    
+    printf("\nplayer_number:%d\nhand_str:%s",player_number,hand_str);
     printf("!!printing %d",write(fd_write[player_number],hand_str, sizeof(hand_str)));
-        
-   /* if(close(fd_write[player_number])!=0)
-        printf("cant close fd\n");*/
 
     char test[200];
     char ch;
@@ -217,6 +207,7 @@ shdata *joinroom(char *name, char *room, int room_size, int *shmid){
     shdata *addr;
     key_t key;
     int fifo;
+    char fifoplayer0[40]="FIFO";
     key=ftok(room,0);
     *shmid = shmget(key, 0,0);
 
@@ -226,6 +217,10 @@ shdata *joinroom(char *name, char *room, int room_size, int *shmid){
         *shmid=shmget(key, sizeof(shdata), IPC_CREAT | IPC_EXCL | SHM_R | SHM_W);    
         addr=(shdata*)shmat(*shmid,0,0);
         initalize_data(addr,room_size);
+        strcat(fifoplayer0,name);
+
+        mkfifo(fifoplayer0, 0666); 
+        fd_read=open(fifoplayer0,O_RDONLY|O_NONBLOCK);        
     }
 
     else{
@@ -237,16 +232,17 @@ shdata *joinroom(char *name, char *room, int room_size, int *shmid){
             return addr;
         }
     }
-    
+    printf("\nacrescentar player");
     add_player_to_shdata(addr,name);
     /*##########
         Setting up FIFOname
             ##########*/
-        fifo=create_fifo(addr);
+        printf("\ncreatefifo");
+        if(isDealer==0)
+            fifo=create_fifo(addr);
+
    if(fifo==-1){
         addr[0].failed=2;
-
-
         return addr;
     }
 
@@ -303,7 +299,11 @@ int create_fifo(shdata *addr){
     fifo=mkfifo(path, 0666); 
     if(fifo==-1)
         return -1;
-    //open(path,O_NONBLOCK);
+    strcpy(ownFIFO,path);
+    printf("abrir %s",path);
+    fd_read=open(path,O_RDONLY|O_NONBLOCK);        
+    printf("aberto");
+    
     return 0;
 
 }
@@ -313,7 +313,7 @@ int cleanall(shdata *addr, int shmid){
     int size=addr[0].in;
     
     for(i=0;i<size;i++){
-      //  close(addr[0].players[i].FIFOname);
+        close(fd_write[i]);
         unlink(addr[0].players[i].FIFOname);
     }
     shmdt(addr);
@@ -323,23 +323,20 @@ int cleanall(shdata *addr, int shmid){
 
 void print_shdata(shdata data){
 int i;
-printf("\n\nSHDATA---------");
+/*printf("\n\nSHDATA---------");
 printf("\nnplayers: %d",data.nplayers);
 printf("\nin: %d",data.in);
 printf("\nturn: %d",data.turn);
 printf("\nroundnumber: %d",data.roundnumber);
-printf("\ndealer: %d",data.dealer);
+printf("\ndealer: %d",data.dealer);*/
 
 int fd;
+int fd2;
 char buf[150];
 printf("\n# Player Entry\n");
 for(i=0;i<data.in;i++){
     printf("###############");
-    fd=open(data.players[i].FIFOname,O_RDONLY|O_NONBLOCK);
-    read(fd,buf,sizeof(buf));
     printf("\n%d | %s | %s\n",data.players[i].number,data.players[i].nickname,data.players[i].FIFOname);
-    printf("Cards(%d):%s\n",fd,buf);
-    close(fd);
 }
 
 
@@ -368,32 +365,3 @@ void initalize_data(shdata *data, int room_size){
     data[0].roundnumber=0;
     data[0].dealer=0;
 }
-
-
-    /*
-pthread_t tid;
-int k = 10;
-oi=0;
-void *r;
-int shmid;
-int *pt1;
-key_t key;
-char *oi="olá";
-
-
-key=ftok("proc1",0);
-
-shmid = shmget(key, 1024, IPC_CREAT | IPC_EXCL | SHM_R | SHM_W);
-pt1 = (int *) shmat(shmid, 0, 0);
-pt1[0] =oi;
-
-pthread_t tid;
-
-pthread_create(&tid, NULL, thr_func, &k);
-pthread_join(tid, &r);
-
-//printf("|%c|pt2[2]=%c",(char)50,pt1[2]);
-shmdt(pt1);
-shmctl(shmid, IPC_RMID, NULL);
-free(r);
-exit(0);*/
