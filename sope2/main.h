@@ -29,7 +29,7 @@ number, nickname, FIFOname, etc*/
 typedef struct player_entry{
 char nickname[15];
 int number;
-char FIFOname[15];
+char FIFOname[40];
 }player_entry;
 
 
@@ -46,46 +46,23 @@ int dealer;
 card cards[52];
 int deck_size;
 int failed;
-/*mutexes*/
 
 }shdata;
-
-void *dealer_handler(void *arg);
-
-void *player_gameplay_handler(void *arg);
+/* Handles */
 void *player_kbd_handler(void *arg);
-
-
+void *player_gameplay_handler(void *arg);
+void *dealer_handler(void *arg);
 void init_sync_objects_in_shared_memory(shdata *data);
 void remove_cards(card *deck,int *deck_size,int number);
 int distributing_cards(card *cards,int *deck_size,char *fifo,int player_number);
+shdata *joinroom(char *name, char *room, int room_size, int *shmid);
+void init_deck(shdata *addr);
+void shuffle_deck(card *cards, int deck_size);
+int create_fifo(shdata *addr);
+int cleanall(shdata *addr, int shmid);
 void print_shdata(shdata data);
 void add_player_to_shdata(shdata *data,char* name);
 void initalize_data(shdata *data, int room_size);
-shdata *joinroom(char *name, char *room, int room_size, int *shmid);
-int create_fifo(shdata *addr);
-int cleanall(shdata *addr, int shmid);
-void shuffle_deck(card *cards,int deck_size);
-void init_deck(shdata *addr);
-/*
-array with players' info, holding for each entry (player) a structure with her
-number, nickname, FIFOname, etc.
-Note: all users' processes will be able to read the array; each user's process
-should only write in its entry.
-
-number of players (nplayers)
-turn to play (turn, corresponding to the player's number, 0..nplayers-1)
-
-round number (roundnumber)
-
-dealer's number identification (dealer is 0)
-
-cards on the table, for each round (tablecards)
-
-necessary inter-process synchronization variables (mutexes, condition variables)in order to avoid busy waiting
-
-
-*/
 
 
 

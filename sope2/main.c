@@ -3,7 +3,7 @@
 
 int isDealer;
 int fd_write[10];
-int fd_read;
+int fd_read,ownNUMBER;
 char ownFIFO[40], ownNAME[40];
 
 int main(int argc, char *argv[], char *envp[])
@@ -12,7 +12,7 @@ int main(int argc, char *argv[], char *envp[])
 
 shdata *addr;
 pthread_t tidp_gp,tidp_kbd,tidd;
-int shmid=0,i;
+int shmid=0;
 
     if(argc!=4){
         printf("Invalid number of arguments\n");
@@ -57,23 +57,40 @@ int shmid=0,i;
 
 return 0;
 
-
-
 }
-void *player_kbd_handler(void *arg){
-        char ch[100];
-        char buf[150];
-            while(1){
-            printf("promptPLAYER > ");
-            scanf("%s",ch);
-            printf("C:%s\n",ch);
-            if(strcmp(ch,"show")==0){
-                read(fd_read,buf,sizeof(buf));
-                printf("Cards: %s",buf);
 
+/* ##################
+        Functions
+   ################## */
+
+void *player_kbd_handler(void *arg){
+        shdata *addr=(shdata*)arg;
+        char ch[100];
+        char hand[150];
+        int rank;
+        char suit='W';
+        int c;
+        
+            while(1){
+           printf("promptPLAYER > ");
+            scanf("%s",ch);
+            
+            if(strcmp(ch,"show")==0){
+                read(fd_read,hand,sizeof(hand));
+                printf("[Cards: %s]\n",hand);
             }
-            if(strcmp(ch,"exit")==0)
-                break;
+            else if(strcmp(ch,"turn")==0)
+                printf("[Turn: %d]\n",addr[0].turn);
+            else if(strstr(ch,"play:")!=0)
+                if(addr[0].turn!=ownNUMBER)
+                    printf("It's not your turn to play!");
+                else
+                    c=sscanf(ch,"play:%d%c",&rank,&suit);
+              /* PLAY & CHECK CARD */
+            else if(strcmp(ch,"exit")==0)
+                break;                
+            printf("\n");
+                
         }
 
     return 0;
@@ -86,8 +103,17 @@ void *player_gameplay_handler(void *arg){
     pthread_mutex_unlock(&addr[0].mut); 
 
     printf("\nisPlayer: %s ",addr[0].players[1].nickname);
-
-
+    pthread_mutex_lock(&addr[0].mut); 
+    while (addr[0].turn == -1)
+        pthread_cond_wait(&addr[0].cvar, &addr[0].mut);
+    pthread_mutex_unlock(&addr[0].mut); 
+    //puts("\nOIIII");
+  //  printf("\n[Dealer%c] %s is the one playing.\npromptPLAYER > ",addr[0].turn,addr[0].players[addr[0].turn].nickname);
+    
+    if(isDealer==0){
+    fprintf (stderr, "\n[Dealer] %s is the one playing.\npromptPLAYER > ",addr[0].players[addr[0].turn].nickname);
+    fflush(stderr);
+}
     return 0;
 }
 
@@ -126,7 +152,20 @@ int check=0,i;
     for(i=0;i<addr[0].in;i++) 
         distributing_cards(addr[0].cards,&addr[0].deck_size,addr[0].players[i].FIFOname,i);
 
-        print_shdata(addr[0]);
+    print_shdata(addr[0]);
+
+    pthread_mutex_lock(&addr[0].mut);
+    srand (time(NULL));
+    if(addr[0].nplayers==1)
+        addr[0].turn =0;
+    else
+        addr[0].turn = rand() % addr[0].nplayers;
+    pthread_cond_broadcast(&addr[0].cvar);
+    pthread_mutex_unlock(&addr[0].mut); 
+    fprintf (stderr, "\n[Dealer] %s is the one playing.\npromptPLAYER > ",addr[0].players[addr[0].turn].nickname);
+    fflush(stderr);
+
+    
     return 0;
 }
 
@@ -159,7 +198,7 @@ for(j=0;j<number;j++){
 
 int distributing_cards(card *cards,int *deck_size,char *fifo,int player_number){
 
-    int i,j,fd;
+    int i,j;
     card hand[HANDLIMIT];
     char hand_str[150]="";
 
@@ -189,11 +228,6 @@ for(j=0;j<HANDLIMIT;j++){
     
     printf("\nplayer_number:%d\nhand_str:%s",player_number,hand_str);
     printf("!!printing %d",write(fd_write[player_number],hand_str, sizeof(hand_str)));
-
-    char test[200];
-    char ch;
-    
-
     remove_cards(cards,deck_size,HANDLIMIT);
     printf("$$ cards removed%d",*deck_size);
     return 0;
@@ -251,9 +285,6 @@ shdata *joinroom(char *name, char *room, int room_size, int *shmid){
 }
 
 void init_deck(shdata *addr){
-
-
-srand (time(NULL));
 int i,j;
 int ctr=0;
 char rank[]={'A','2','3','4','5','6','7','8','9','J','Q','K'};
@@ -330,9 +361,6 @@ printf("\nturn: %d",data.turn);
 printf("\nroundnumber: %d",data.roundnumber);
 printf("\ndealer: %d",data.dealer);*/
 
-int fd;
-int fd2;
-char buf[150];
 printf("\n# Player Entry\n");
 for(i=0;i<data.in;i++){
     printf("###############");
@@ -356,12 +384,13 @@ void add_player_to_shdata(shdata *data,char* name){
     strcpy(data[0].players[data[0].in-1].nickname,name);
     strcpy(data[0].players[data[0].in-1].FIFOname,fifo);
     data[0].players[data[0].in-1].number=data[0].in-1;
+    ownNUMBER=data[0].in-1;
 }
 void initalize_data(shdata *data, int room_size){
     data[0].deck_size=52;
     data[0].nplayers=room_size;
     data[0].in=0;
-    data[0].turn=0;
+    data[0].turn=-1;
     data[0].roundnumber=0;
     data[0].dealer=0;
 }
