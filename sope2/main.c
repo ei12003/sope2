@@ -29,8 +29,7 @@ return NULL;
 int isDealer;
 
 
-void
-init_sync_objects_in_shared_memory(shdata *data)
+void init_sync_objects_in_shared_memory(shdata *data)
 {
 pthread_mutexattr_t mattr;
 pthread_mutexattr_init(&mattr);
@@ -45,9 +44,72 @@ printf("pthread_cond_init=%d", pthread_cond_init(&data[0].cvar, &cattr));
 
 } 
 
+void remove_cards(card *deck,int *deck_size,int number){
+int i,j;
+for(j=0;j<number;j++){
+    for(i=0;i<(*deck_size)-1;i++)
+        deck[i]=deck[i+1];
+    (*deck_size)--;
+}
+}
+
+int distributing_cards(shdata *addr){
+    int i,j,fd;
+    char *fifo="fifotest";
+    card hand[HANDLIMIT];
+    char hand_str[150]="";
+
+    for(i=0;i<addr[0].in;i++)
+        fifo=addr[0].players[i].FIFOname;
+
+    for(j=0;j<HANDLIMIT;j++){
+        hand[j]=addr[0].cards[j]; 
+        printf("[%s %c]",hand[j].rank,hand[j].suit);
+    }
+
+    char suit[]={'c','d','h','s'};
+    int size;
+    for(i=0;i<4;i++){
+        for(j=0;j<HANDLIMIT;j++){
+            if(hand[j].suit==suit[i]){
+                strcat(hand_str,hand[j].rank);
+                size=strlen(hand_str);
+                hand_str[size]=hand[j].suit;
+                hand_str[size+1]='\0';
+                strcat(hand_str,"-");
+            }
+        }
+
+        hand_str[strlen(hand_str)-1]='\0';
+        strcat(hand_str,"/");
+    }
+    hand_str[strlen(hand_str)-1]='\0';
+    printf("[hand: %s]",hand_str);    
+    int fd_tmp=open(fifo,O_RDONLY|O_NONBLOCK);
+    fd=open(fifo,O_WRONLY);
+    if(fd==-1){
+        printf("ups2");
+        return -1;
+    }
+    write(fd,hand_str, sizeof(hand_str));
+        
+    if(close(fd)!=0)
+        printf("cant close fd\n");
+    if(close(fd_tmp)!=0)
+        printf("cant close fd_tmp\n");
+    char ch;
+    scanf("%c",&ch);
+
+    remove_cards(addr[0].cards,&addr[0].deck_size,HANDLIMIT);
+    return 0;
+}
+//c-5c-8c-Jc/Ah-2h/6d-10d-Kd/3s-5s-4s-7s--------------------------------------------------------------
+//write(fd, const void *buf, sizeof()); 
+
 
 int main(int argc, char *argv[], char *envp[])
 {
+
 shdata *addr;
 int shmid=0;;
 
@@ -70,7 +132,9 @@ int shmid=0;;
         return -2;
     }
     if(isDealer!=1){
-        pthread_mutex_trylock(&addr[0].mut);
+        printf("\noi1\n");
+        pthread_mutex_lock(&addr[0].mut);
+        printf("oi2");
         pthread_cond_signal(&addr[0].cvar);
         pthread_mutex_unlock(&addr[0].mut); 
 
@@ -79,28 +143,25 @@ int shmid=0;;
     if(isDealer==1){
         init_deck(addr);
         init_sync_objects_in_shared_memory(addr);
-    }
     
-    //print_shdata(addr[0]);
-
-
-if(isDealer==1){
+        printf("\nWaiting for other players to join\n");
         pthread_mutex_lock(&addr[0].mut); 
         while (addr[0].in != addr[0].nplayers)
             pthread_cond_wait(&addr[0].cvar, &addr[0].mut);
         pthread_mutex_unlock(&addr[0].mut); 
-}
 
-char ch;
-    if(isDealer==1){
+        printf("\nDistributing cards\n");
+        distributing_cards(addr);
+
+        char ch;
         do{
             printf("prompt > ");
             scanf("%c",&ch);
+
         }while(ch!='e');
         
         cleanall(addr,shmid);
     }
-
 
 return 0;
 
@@ -143,6 +204,7 @@ shdata *joinroom(char *name, char *room, int room_size, int *shmid){
    if(fifo==-1){
         addr[0].failed=2;
 
+
         return addr;
     }
 
@@ -177,17 +239,17 @@ for(j=0;j<4;j++){
 }
 
 
-shuffle_deck(addr[0].cards);
+shuffle_deck(addr[0].cards,addr[0].deck_size);
 
 }
 
 
-void shuffle_deck(card *cards){
+void shuffle_deck(card *cards, int deck_size){
 card tmp;
 int i,j;
 srand(time(NULL));
-for(i=0;i<52;i++){
-    j = rand() % 52; 
+for(i=0;i<deck_size;i++){
+    j = rand() % deck_size; 
     tmp=cards[i];
     cards[i]=cards[j];
     cards[j]=tmp;
@@ -245,6 +307,7 @@ void add_player_to_shdata(shdata *data,char* name){
     data[0].players[data[0].in-1].number=data[0].in-1;
 }
 void initalize_data(shdata *data, int room_size){
+    data[0].deck_size=52;
     data[0].nplayers=room_size;
     data[0].in=0;
     data[0].turn=0;

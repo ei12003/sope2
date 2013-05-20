@@ -16,6 +16,7 @@
 #include <sys/ipc.h>
 #include <sys/shm.h>
 
+#define HANDLIMIT 6
 
 typedef struct card{
 char rank[3];
@@ -43,6 +44,7 @@ int turn;
 int roundnumber;
 int dealer;
 card cards[52];
+int deck_size;
 int failed;
 /*mutexes*/
 
@@ -54,7 +56,7 @@ void initalize_data(shdata *data, int room_size);
 shdata *joinroom(char *name, char *room, int room_size, int *shmid);
 int create_fifo(shdata *addr);
 int cleanall(shdata *addr, int shmid);
-void shuffle_deck(card *cards);
+void shuffle_deck(card *cards,int deck_size);
 void init_deck(shdata *addr);
 /*
 array with players' info, holding for each entry (player) a structure with her
