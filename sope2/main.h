@@ -46,6 +46,7 @@ int dealer;
 card cards[52];
 int deck_size;
 int failed;
+struct tm turn_time;
 
 }shdata;
 /* Handles */

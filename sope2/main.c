@@ -5,6 +5,7 @@ int isDealer;
 int fd_write[10];
 int fd_read,ownNUMBER;
 char ownFIFO[40], ownNAME[40];
+int log_fd;
 
 int main(int argc, char *argv[], char *envp[])
 {
@@ -14,7 +15,10 @@ shdata *addr;
 pthread_t tidp_gp,tidp_kbd,tidd;
 int shmid=0;
 
-    if(argc!=4){
+
+
+
+ if(argc!=4){
         printf("Invalid number of arguments\n");
         return -1;
     }
@@ -38,6 +42,7 @@ int shmid=0;
         printf("sucessful joining");
 
     strcpy(ownNAME,argv[1]);
+    
     if(isDealer==1)
         pthread_create(&tidd, NULL, dealer_handler, addr);        
 
@@ -46,9 +51,6 @@ int shmid=0;
     pthread_join(tidp_kbd, NULL);
 
     close(fd_read);
-
-    
-    
     
     if(isDealer==1)
        cleanall(addr,shmid);
@@ -56,12 +58,28 @@ int shmid=0;
         shmdt(addr);
 
 return 0;
+// */
 
 }
 
 /* ##################
         Functions
    ################## */
+
+void log(char *what,char str,int pnumber,char *name,shdata *data){
+  char buf[];
+  char time[]="time_to_implement	|",player,what,result;
+  
+  strcat(buf,time);
+  strcat(buf,"Player");
+  // numberstrcat(buf,
+  strcat(buf,"-");
+  strcat(buf,name);
+  strcat(buf,"	|");
+  
+  write(log_fd,buf,sizeof(log_fd));  
+}
+
 
 void *player_kbd_handler(void *arg){
         shdata *addr=(shdata*)arg;
@@ -84,11 +102,20 @@ void *player_kbd_handler(void *arg){
             else if(strstr(ch,"play:")!=0)
                 if(addr[0].turn!=ownNUMBER)
                     printf("It's not your turn to play!");
-                else
+                else{
                     c=sscanf(ch,"play:%d%c",&rank,&suit);
+		    
+		    
+		    
+		}
               /* PLAY & CHECK CARD */
             else if(strcmp(ch,"exit")==0)
-                break;                
+                break;
+	    else 
+	    {
+	     printf("Supported commands:\nshow; play:RS; turn; exit");
+	      
+	    }
             printf("\n");
                 
         }
@@ -116,7 +143,6 @@ void *player_gameplay_handler(void *arg){
 }
     return 0;
 }
-
 
 void *dealer_handler(void *arg){
 int check=0,i;
@@ -160,6 +186,7 @@ int check=0,i;
         addr[0].turn =0;
     else
         addr[0].turn = rand() % addr[0].nplayers;
+    
     pthread_cond_broadcast(&addr[0].cvar);
     pthread_mutex_unlock(&addr[0].mut); 
     fprintf (stderr, "\n[Dealer] %s is the one playing.\npromptPLAYER > ",addr[0].players[addr[0].turn].nickname);
@@ -194,8 +221,6 @@ for(j=0;j<number;j++){
 }
 }
 
-
-
 int distributing_cards(card *cards,int *deck_size,char *fifo,int player_number){
 
     int i,j;
@@ -227,7 +252,7 @@ for(j=0;j<HANDLIMIT;j++){
     hand_str[strlen(hand_str)-1]='\0';
     
     printf("\nplayer_number:%d\nhand_str:%s",player_number,hand_str);
-    printf("!!printing %d",write(fd_write[player_number],hand_str, sizeof(hand_str)));
+    printf("!!printing %d",(int)write(fd_write[player_number],hand_str, sizeof(hand_str)));
     remove_cards(cards,deck_size,HANDLIMIT);
     printf("$$ cards removed%d",*deck_size);
     return 0;
@@ -272,8 +297,8 @@ shdata *joinroom(char *name, char *room, int room_size, int *shmid){
         Setting up FIFOname
             ##########*/
         printf("\ncreatefifo");
-        if(isDealer==0)
-            fifo=create_fifo(addr);
+     if(isDealer==0)
+           fifo=create_fifo(addr);
 
    if(fifo==-1){
         addr[0].failed=2;
@@ -349,6 +374,7 @@ int cleanall(shdata *addr, int shmid){
     }
     shmdt(addr);
     shmctl(shmid, IPC_RMID, NULL); 
+    close(log_fd);
     return 0;
 }
 
@@ -387,6 +413,12 @@ void add_player_to_shdata(shdata *data,char* name){
     ownNUMBER=data[0].in-1;
 }
 void initalize_data(shdata *data, int room_size){
+    
+    char buf[]="when	|who	|what	|result";
+
+    log_fd=open("shname.log", O_RDWR | O_CREAT, 0666);
+    write(log_fd,buf,sizeof(log_fd));
+    
     data[0].deck_size=52;
     data[0].nplayers=room_size;
     data[0].in=0;
