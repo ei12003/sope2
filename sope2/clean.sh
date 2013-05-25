@@ -20,3 +20,4 @@ for id in $IPCS_Q; do
 done
 
 rm FIFO*
+rm shname.log
