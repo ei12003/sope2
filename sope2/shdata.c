@@ -42,6 +42,7 @@ pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
 pthread_mutex_init(&data[0].mut, &mattr);
 pthread_mutex_init(&data[0].mut2, &mattr);
 pthread_mutex_init(&data[0].tablemut, &mattr);
+pthread_mutex_init(&data[0].logmut, &mattr);
 
 pthread_condattr_t cattr;
 pthread_condattr_init(&cattr);
@@ -49,6 +50,7 @@ pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
 pthread_cond_init(&data[0].cvar, &cattr);
 pthread_cond_init(&data[0].cvar2, &cattr);
 pthread_cond_init(&data[0].ctable, &cattr);
+pthread_cond_init(&data[0].clog, &cattr);
 
 
 } 
@@ -92,19 +94,14 @@ char tmp[5];
 for(i=0;i<*size;i++){
     if(strcmp(handcards[i],card)==0)
     {   
-        printf("\ncard to play[%d][%d]:%s",*size-i,i,handcards[i]);   
-        for(j=0;j<(*size)-i;j++){
-            printf("\nin");
+        for(j=0;j<(*size)-i;j++)
             strcpy(handcards[i+j],handcards[i+j+1]);
 
-        }
         (*size)--;
         
         format_hand(handcards,*size,hand_str);
-
         
         strcpy(addr[0].tablecards[(++(addr[0].tablein))-1],card);
-        printf("\ntab[%d]:%s\n##|\n",(addr[0].tablein),addr[0].tablecards[0]);
         if(addr[0].nplayers==addr[0].tablein){
                 pthread_mutex_lock(&addr[0].tablemut);
                 pthread_cond_signal(&addr[0].ctable);

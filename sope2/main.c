@@ -117,18 +117,22 @@ void *player_kbd_handler(void *arg){
         int c;
         
             while(1){
-           printf("promptPLAYER > ");
+           printf("prompt > ");
             scanf("%s",ch);
             
             if(strcmp(ch,"hand")==0){
-                printf("\nhandbytes:%d|\n",log_game("hand", hand,ownNUMBER,ownNAME));
+                pthread_mutex_lock(&addr[0].logmut); 
+                log_game("hand", hand,ownNUMBER,ownNAME);
+                pthread_mutex_unlock(&addr[0].logmut); 
               //  format_hand(handcards,handsize,hand);
                 printf("[Hand: %s]\n",hand);
             }
             else if(strcmp(ch,"turn")==0){
                 printf("[Turn: %d]\n",addr[0].turn);
                 aux[0]=((char)((int) '0'+addr[0].turn));
-                printf("\nturnbytes:%d|\n",log_game("turn",aux,ownNUMBER,ownNAME));
+                pthread_mutex_lock(&addr[0].logmut); 
+                log_game("turn",aux,ownNUMBER,ownNAME);
+                pthread_mutex_unlock(&addr[0].logmut); 
             }
             else if(strstr(ch,"play:")!=NULL){
                 if(addr[0].turn!=ownNUMBER)
@@ -137,32 +141,27 @@ void *player_kbd_handler(void *arg){
                     c=sscanf(ch,"play:%s",card);
 
                     if(strcmp(card,"d0")==0){
-                      /*  addr[0].deck_size=0;
+                        addr[0].deck_size=0;
                         pthread_mutex_lock(&addr[0].tablemut);
                         pthread_cond_signal(&addr[0].ctable);
                         pthread_mutex_unlock(&addr[0].tablemut); 
-                        return ;*/
-
-    pthread_mutex_lock(&addr[0].mut2);
-    
-       fprintf (stderr, "\nxiii[%d]",addr[0].roundnumber);
-    fflush(stderr);
-    pthread_cond_signal(&addr[0].cvar2);
-    pthread_mutex_unlock(&addr[0].mut2); 
-
+                        return ;
                     }
 
                     c=play_card(card,handcards,hand,&handsize,addr);
-                    //int play_card(char* card,char handcards[6][4],char *hand_str,int *size,char tablecards[9][4],int *tablein);
                     if(c==-1)
                         printf("You don't have that card\n");
                     else{
-                        printf("\nplaybytes:%d|\n",log_game("play",card,ownNUMBER,ownNAME));
+                        pthread_mutex_lock(&addr[0].logmut); 
+                        log_game("play",card,ownNUMBER,ownNAME);
+                        pthread_mutex_unlock(&addr[0].logmut); 
+
                         change_turn(addr[0].nplayers,&addr[0].turn);
                         addr[0].changed=1;
-                        pthread_mutex_lock(&addr[0].mut);
-                        pthread_cond_broadcast(&addr[0].cvar);
-                        pthread_mutex_unlock(&addr[0].mut); 
+                        
+                        pthread_mutex_lock(&addr[0].mut2);
+                        pthread_cond_broadcast(&addr[0].cvar2);
+                        pthread_mutex_unlock(&addr[0].mut2); 
                      }
                     
                 }
@@ -185,69 +184,65 @@ void *player_kbd_handler(void *arg){
 
 void *player_turn_wait(void *arg){
   shdata *addr=(shdata*)arg;
-while(addr[0].turn!=-2){
-    pthread_mutex_lock(&addr[0].mut); 
-    while (addr[0].turn != ownNUMBER || addr[0].changed==0)
-        pthread_cond_timedwait(&addr[0].cvar, &addr[0].mut,100);
-    pthread_mutex_unlock(&addr[0].mut); 
-    addr[0].changed=0;
+  /* Warns the player when it's his time to play */
+    while(addr[0].turn!=-2){
+        pthread_mutex_lock(&addr[0].mut2); 
+        while (addr[0].turn != ownNUMBER || addr[0].changed==0)
+            pthread_cond_wait(&addr[0].cvar2, &addr[0].mut2);
+        pthread_mutex_unlock(&addr[0].mut2); 
+        addr[0].changed=0;
 
-    
-    if(isDealer)
-    fprintf (stderr, "\nIt's your turn!%d\npromptPLAYER > ",ownNUMBER);
-    else
-        fprintf (stderr, "\nIt's your turn!%d\npromptPLAYER > ",ownNUMBER);
-    fflush(stderr);
-}
+        fprintf (stderr, "\nIt's your turn!\n\nprompt > ");
+        fflush(stderr);
+    }
 }
 
 void *player_gameplay_handler(void *arg){
     shdata *addr=(shdata*)arg;
     char aux[10]="";
+
+    /* Warns the dealer he got in */
     pthread_mutex_lock(&addr[0].mut);
     pthread_cond_signal(&addr[0].cvar);
     pthread_mutex_unlock(&addr[0].mut); 
-
-    printf("\nisPlayer: %s ",addr[0].players[1].nickname);
     
-
+    /* Waits for all players to be in and the cards to be distributed */
     pthread_mutex_lock(&addr[0].mut2); 
-    while (addr[0].roundnumber == 0){
-        fprintf (stderr, "\n123456789");
-    fflush(stderr);
+    while (addr[0].roundnumber == 0)
         pthread_cond_wait(&addr[0].cvar2, &addr[0].mut2);
-      
-}
-
-    fprintf (stderr, "##############out\n");
-    fflush(stderr);
     pthread_mutex_unlock(&addr[0].mut2); 
     
-
-    printf("bytesread %d\n",read(fd_read,hand,sizeof(hand)));
-    fprintf (stderr, "##############oi|%s\n",hand);
-    fflush(stderr);
+    /* Reads their cards */
+    read(fd_read,hand,sizeof(hand));
     read_hand(hand,handcards);
-    printf("\nrecebytes:%d\n",log_game("receive-cards",hand,ownNUMBER,ownNAME));
-    //puts("\nOIIII");
-  //  printf("\n[Dealer%c] %s is the one playing.\npromptPLAYER > ",addr[0].turn,addr[0].players[addr[0].turn].nickname);
     
+    /* Logs RE */
+    pthread_mutex_lock(&addr[0].logmut); 
+    log_game("receive-cards",hand,ownNUMBER,ownNAME);
+    pthread_mutex_unlock(&addr[0].logmut); 
+    
+    /* Warns all players who is the first one playing */
     if(isDealer==0){
-    fprintf (stderr, "\n[Dealer] %s is the one playing.\npromptPLAYER > ",addr[0].players[addr[0].turn].nickname);
+    fprintf (stderr, "\n[Dealer] %s is the one playing.\nprompt > ",addr[0].players[addr[0].turn].nickname);
     fflush(stderr);
-}
+    }
+
     while(addr[0].deck_size!=0){    
+    /* Waits for receiving the card after the round */
     pthread_mutex_lock(&addr[0].mut); 
     while (read(fd_read,aux,sizeof(aux))<2)
         pthread_cond_wait(&addr[0].cvar, &addr[0].mut);
     pthread_mutex_unlock(&addr[0].mut);    
-    printf("\naux:%s\n",aux);
+    
+    /* Adds card to hand */
     strcpy(handcards[handsize],aux);
     handsize++;
     format_hand(handcards,handsize,hand);
-    pthread_mutex_lock(&addr[0].mut); 
-    printf("\nrecebytes:%d\n",log_game("receive-cards",hand,ownNUMBER,ownNAME));
-    pthread_mutex_unlock(&addr[0].mut);    
+    
+    /* Logs RE */
+    pthread_mutex_lock(&addr[0].logmut); 
+    log_game("receive-card",hand,ownNUMBER,ownNAME);
+    pthread_mutex_unlock(&addr[0].logmut);    
 }
 
     return 0;
@@ -257,7 +252,6 @@ void *dealer_handler(void *arg){
 int check=0,i;
 
     shdata *addr=(shdata*)arg;
-    printf("\nisDealer: %s ",addr[0].players[0].nickname);
 
         init_deck(addr[0].cards,&addr[0].deck_size);
         init_sync_objects_in_shared_memory(addr);
@@ -266,33 +260,31 @@ int check=0,i;
         pthread_mutex_lock(&addr[0].mut); 
         while (addr[0].in != addr[0].nplayers)
             pthread_cond_wait(&addr[0].cvar, &addr[0].mut);
-            
+
+        /* Opens all player FIFOS for writing so it can distribute the cards */
         for(i=0;i<addr[0].in;i++){
                 check++;
-                printf("abrir ESCRITA%d cond",i);
                 fd_write[i]=open(addr[0].players[i].FIFOname,O_WRONLY);
-                printf("aberto");
                 if(fd_write[i]==-1){
-                    printf("UPS2\n");
+                    printf("Could not open player %d FIFO. Abort\n",i);
                     return 0;
                 }
             }
-
         pthread_mutex_unlock(&addr[0].mut); 
 
         printf("\nDistributing cards\n");
 
-
-
+    /* Gives the cards at beginning */
     for(i=0;i<addr[0].in;i++)
         distributing_cards(addr[0].cards,&addr[0].deck_size,addr[0].players[i].FIFOname,i,fd_write[i]);
         
-           fprintf (stderr, "\nasdasdsda");
-    fflush(stderr);
-    printf("\ndisbytes:%d\n",log_game("deal", "-",0,ownNAME));
-
+    /* Logs*/
+    pthread_mutex_lock(&addr[0].logmut); 
+    log_game("deal", "-",0,ownNAME);
+    pthread_mutex_unlock(&addr[0].logmut); 
     //print_shdata(addr[0]);
 
+    /* Decides who the first one playing */
     srand (time(NULL));
     if(addr[0].nplayers==1)
         addr[0].turn =0;
@@ -300,38 +292,43 @@ int check=0,i;
         addr[0].turn = rand() % addr[0].nplayers;
     
 
+    /* Broadcasts to warn all players that the game is ready to be played */
     pthread_mutex_lock(&addr[0].mut2);
     addr[0].roundnumber=1;
-       fprintf (stderr, "\nxiii");
-    fflush(stderr);
     pthread_cond_broadcast(&addr[0].cvar2);
     pthread_mutex_unlock(&addr[0].mut2); 
 
-    fprintf (stderr, "\n[Dealer] %s is the one playing.\npromptPLAYER > ",addr[0].players[addr[0].turn].nickname);
+    fprintf (stderr, "\n[Dealer] %s is the one playing.\nprompt > ",addr[0].players[addr[0].turn].nickname);
     fflush(stderr);
+    
 
-    
-    
+    /* Loop: Ends when there's no more cards on the table */
     while(addr[0].deck_size!=0){
+        
+        /* Waits for all cards to be in the table */
         pthread_mutex_lock(&addr[0].tablemut); 
             while (addr[0].tablein != addr[0].nplayers)
                 pthread_cond_wait(&addr[0].ctable, &addr[0].tablemut);
         pthread_mutex_unlock(&addr[0].tablemut); 
         
+
+        /* Gives one card to all players and warns them */
         pthread_mutex_lock(&addr[0].mut);
         for(i=0;i<addr[0].in;i++)
             give_card(addr[0].cards,&addr[0].deck_size,addr[0].players[i].FIFOname,i,fd_write[i]);
         pthread_cond_broadcast(&addr[0].cvar);
-        printf("\ndisbytes:%d\n",log_game("deal", "-",0,ownNAME));
         pthread_mutex_unlock(&addr[0].mut); 
+        
+        /* Logs */
+        pthread_mutex_lock(&addr[0].logmut); 
+        log_game("deal", "-",0,ownNAME);
+        pthread_mutex_unlock(&addr[0].logmut); 
+        
         addr[0].tablein=0;
         addr[0].roundnumber+=1;
 
     }
     printf("\nEND");
-
-    //distributing_cards(addr[0].cards,&addr[0].deck_size,addr[0].players[i].FIFOname,i,fd_write[i]);
-
     return 0;
 }
 

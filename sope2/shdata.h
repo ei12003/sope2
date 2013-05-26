@@ -27,9 +27,13 @@ typedef struct shdata{
 pthread_cond_t cvar;
 pthread_cond_t cvar2;
 pthread_cond_t ctable;
+pthread_cond_t clog;
+
 pthread_mutex_t mut2;
 pthread_mutex_t tablemut;
+pthread_mutex_t logmut;
 pthread_mutex_t mut;
+
 int nplayers;
 int in;
 player_entry players[9];
