@@ -38,18 +38,24 @@ int nplayers;
 int in;
 player_entry players[9];
 int turn;
+char room[20];
+char filename[20];
 int roundnumber;
 int dealer;
 card cards[52];
 int deck_size;
 int failed;
 int changed;
+int roomsize;
 char tablecards[9][4];
 int tablein;
+long int timer,roundtimer;
+char lastround[50];
 struct tm turn_time;
 
 }shdata;
 
+int file_exist (char *filename);
 shdata *joinroom(char *name, char *room, int room_size, int *shmid,int *ownNUMBER, char *ownFIFO, int *fd_read, int *isDealer);
 int create_fifo(shdata *addr, char *ownFIFO, int *fd_read);
 int cleanall(shdata *addr, int shmid, int *fd_write);

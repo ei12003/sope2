@@ -125,7 +125,7 @@ int give_card(card *cards,int *deck_size,char *fifo,int player_number, int fd){
         hand_str[strlen(hand_str)]=card.suit;
         hand_str[strlen(hand_str)]='\0';
         
-        printf("card[%d]:%s%c",write(fd,hand_str, sizeof(hand_str)),card.rank,card.suit);
+        write(fd,hand_str, sizeof(hand_str));
 }
 
 
