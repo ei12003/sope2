@@ -1,17 +1,10 @@
 #include "shdata.h"
 
 
-int file_exist (char *filename)
-{
-  struct stat  tmp;   
-  return (stat (filename, &tmp) == 0);
-}
-
 void initalize_data(shdata *data, int room_size){
     
     int log_fd,i;
     char buf[]="when                | who                | what            | result\n";
-    char tmp[20];
 
     strcpy(data[0].filename,data[0].room);
     strcat(data[0].filename,".log");
@@ -32,8 +25,8 @@ void initalize_data(shdata *data, int room_size){
     data[0].roundnumber=0;
     data[0].dealer=0;
     data[0].changed=0;
-    data[0].roundtimer=0;
-    data[0].timer;
+    data[0].roundtimer=time(NULL);
+    data[0].timer=time(NULL);
 }
 
 
@@ -51,20 +44,20 @@ void add_player_to_shdata(shdata *data,char* name,int *ownNUMBER){
 void init_sync_objects_in_shared_memory(shdata *data)
 {
 pthread_mutexattr_t mattr;
-printf("\nmattr|%d",pthread_mutexattr_init(&mattr));
+pthread_mutexattr_init(&mattr);
 pthread_mutexattr_setpshared(&mattr, PTHREAD_PROCESS_SHARED);
-printf("\nmut|%d",pthread_mutex_init(&data[0].mut, &mattr));
-printf("\nmut2|%d",pthread_mutex_init(&data[0].mut2, &mattr));
-printf("\ntablemut|%d",pthread_mutex_init(&data[0].tablemut, &mattr));
-printf("\nlogmut|%d",pthread_mutex_init(&data[0].logmut, &mattr));
+pthread_mutex_init(&data[0].mut, &mattr);
+pthread_mutex_init(&data[0].mut2, &mattr);
+pthread_mutex_init(&data[0].tablemut, &mattr);
+pthread_mutex_init(&data[0].logmut, &mattr);
 
 pthread_condattr_t cattr;
-printf("\ncattr|%d",pthread_condattr_init(&cattr));
+pthread_condattr_init(&cattr);
 pthread_condattr_setpshared(&cattr, PTHREAD_PROCESS_SHARED);
-printf("\ncvar|%d",pthread_cond_init(&data[0].cvar, &cattr));
-printf("\ncvar2|%d",pthread_cond_init(&data[0].cvar2, &cattr));
-printf("\nctable|%d",pthread_cond_init(&data[0].ctable, &cattr));
-printf("\nclog|\n%d",pthread_cond_init(&data[0].clog, &cattr));
+pthread_cond_init(&data[0].cvar, &cattr);
+pthread_cond_init(&data[0].cvar2, &cattr);
+pthread_cond_init(&data[0].ctable, &cattr);
+pthread_cond_init(&data[0].clog, &cattr);
 
 
 } 
@@ -102,19 +95,16 @@ int create_fifo(shdata *addr,char *ownFIFO,int *fd_read){
     if(fifo==-1)
         return -1;
     strcpy(ownFIFO,path);
-    printf("abrir %s",path);
-    (*fd_read)=open(path,O_RDONLY|O_NONBLOCK);        
-    printf("aberto");
-    
+
+    (*fd_read)=open(path,O_RDONLY|O_NONBLOCK);            
+
     return 0;
 
 }
 
 int play_card(char* card,char handcards[6][4],char *hand_str,int *size,shdata *addr)
 {
-int i,aux,j;
-char tmp[5];
-
+int i,j;
 
 for(i=0;i<*size;i++){
     if(strcmp(handcards[i],card)==0)
@@ -152,7 +142,7 @@ shdata *joinroom(char *name, char *room, int room_size, int *shmid,int *ownNUMBE
     *shmid = shmget(key, 0,0);
     
     if(*shmid==-1){
-        printf("Creating\n");
+        printf("\n...Creating...\n");
         *isDealer=1;
         *shmid=shmget(key, sizeof(shdata), IPC_CREAT | IPC_EXCL | SHM_R | SHM_W);    
         addr=(shdata*)shmat(*shmid,0,0);
@@ -168,18 +158,18 @@ shdata *joinroom(char *name, char *room, int room_size, int *shmid,int *ownNUMBE
     else{
         *isDealer=0;
         addr=(shdata*)shmat(*shmid,0,0);
-        printf("Joining%d\n",addr[0].in);
+        printf("\n...Joining...\n");
         if(addr[0].in==addr[0].nplayers){        
             addr[0].failed=1;
             return addr;
         }
     }
-    printf("\nacrescentar player");
+    
     add_player_to_shdata(addr,name,ownNUMBER);
     /*##########
         Setting up FIFOname
             ##########*/
-        printf("\ncreatefifo");
+        
      if(*isDealer==0)
            fifo=create_fifo(addr,ownFIFO,fd_read);
 
@@ -190,4 +180,10 @@ shdata *joinroom(char *name, char *room, int room_size, int *shmid,int *ownNUMBE
 
 
     return addr;
+}
+
+int file_exist (char *filename)
+{
+  struct stat  tmp;   
+  return (stat (filename, &tmp) == 0);
 }

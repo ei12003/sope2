@@ -15,29 +15,21 @@
 #include <sys/types.h>
 #include <sys/ipc.h>
 #include <sys/shm.h>
-//#include "cards.h"
 #include "shdata.h"
 
 
-
-
-
-
-
-
-/*array with players' info, holding for each entry (player) a structure with her
-number, nickname, FIFOname, etc*/
-
-/* Handles */
+/* Handlers */
 void *player_kbd_handler(void *arg);
 void *player_gameplay_handler(void *arg);
 void *player_turn_wait(void *arg);
 void *dealer_handler(void *arg);
+
+/* Writes to filename what happened */
 int log_game(char *what, char *result,int pnumber,char *name,char *filename);
+
 void fill_str(int spaces, char *str, char *str_to_fill);
 char *gettime();
-void print_shdata(shdata data);
-
+void change_turn(int nplayers,int *turn, long int *timer);
 
 
 
