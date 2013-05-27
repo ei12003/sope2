@@ -1,4 +1,2 @@
-all: tpc
-
 tpc: main.c
-	gcc main.c -o t -pthread -Wall
+	gcc main.c cards.c shdata.c -o tpc -pthread -Wall

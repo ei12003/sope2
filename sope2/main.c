@@ -15,13 +15,23 @@ int main(int argc, char *argv[], char *envp[])
     int shmid=0;
 
     if(argc!=4){
-        printf("Invalid number of arguments\n");
+        printf("Invalid number of arguments!\n");
         return -1;
     }
 
     if(52%atoi(argv[3])!=0){
-        printf("Room size must be either 2 or 4.\n");
+        printf("Room size must be either 2 or 4!\n");
         return -1;
+    }
+
+    if(strlen(argv[2])>6){
+	printf("Room name must be shorter than 7 characters!\n");
+	return -1;
+    }
+
+    if(strlen(argv[1])>6){
+	printf("Your name must be shorter than 7 characters!\n");
+	return -1;
     }
 
     /* Setting up shared memory (creating or joining) */
@@ -139,13 +149,13 @@ void *player_kbd_handler(void *arg){
 
                 c=play_card(card,handcards,hand,&handsize,addr);
                 if(c==-1)
-                    printf("You don't have that card\n");
+                    printf("You don't have that card!\n");
                 else{
                     pthread_mutex_lock(&addr[0].logmut);
                     log_game("play",card,ownNUMBER,ownNAME,addr[0].filename);
                     pthread_mutex_unlock(&addr[0].logmut);
                     if(handsize==0)
-                        fprintf(stderr,"No more cards to play!\n");
+                        fprintf(stderr,"You just played your last card!\n");
                     change_turn(addr[0].nplayers,&addr[0].turn,&addr[0].timer);
                     addr[0].changed=1;
 
@@ -218,7 +228,7 @@ void *player_gameplay_handler(void *arg){
     pthread_mutex_unlock(&addr[0].logmut);
 
     /* Warns all players who is the first one playing */
-    fprintf (stderr, "\n%s is complete! Game may start!\n\n\n>> [%s] is the first one playing.\n\n%s > ",addr[0].room,addr[0].players[addr[0].turn].nickname,ownNAME);
+    fprintf (stderr, "\n%s is complete! Game may start!\n\nDealer is %s\n\n>> [%s] is the first one playing.\n\n%s > ",addr[0].room,addr[0].players[0].nickname,addr[0].players[addr[0].turn].nickname,ownNAME);
     fflush(stderr);
 
     while(addr[0].deck_size!=0){
